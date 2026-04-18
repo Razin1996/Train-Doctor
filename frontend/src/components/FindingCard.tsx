@@ -1,36 +1,43 @@
+import { AlertTriangle, Info } from "lucide-react";
+import { ConfidenceBadge } from "@/components/ConfidenceBadge";
+
 interface FindingCardProps {
   type: string;
   issue: string;
-  confidence: "High" | "Medium" | "Low";
   evidence: string;
+  confidence: "High" | "Medium" | "Low";
 }
 
-export function FindingCard({ type, issue, confidence, evidence }: FindingCardProps) {
-  const badgeClass =
-    confidence === "High"
-      ? "status-badge-high"
-      : confidence === "Medium"
-      ? "status-badge-medium"
-      : "status-badge-low";
-
-  const borderColor =
-    confidence === "High"
-      ? "border-destructive/40"
-      : confidence === "Medium"
-      ? "border-warning/40"
-      : "border-muted-foreground/20";
-
+export function FindingCard({
+  type,
+  issue,
+  evidence,
+  confidence,
+}: FindingCardProps) {
   return (
-    <div className={`glass-card p-4 border-l-4 ${borderColor}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{type}</span>
+    <div className="rounded-2xl border border-border/60 bg-secondary/30 p-5 transition-all hover:bg-secondary/40">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 mt-0.5">
+            {confidence === "High" ? (
+              <AlertTriangle className="h-4 w-4 text-primary" />
+            ) : (
+              <Info className="h-4 w-4 text-primary" />
+            )}
           </div>
-          <p className="font-heading font-semibold text-foreground">{issue}</p>
-          <p className="text-sm text-muted-foreground mt-2">{evidence}</p>
+
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              {type}
+            </p>
+            <h4 className="text-base font-semibold text-foreground">{issue}</h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {evidence}
+            </p>
+          </div>
         </div>
-        <span className={badgeClass}>{confidence}</span>
+
+        <ConfidenceBadge confidence={confidence} />
       </div>
     </div>
   );
