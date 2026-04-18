@@ -47,6 +47,27 @@ export type RunClassesResponse = {
   classes: RunClassInfo[];
 };
 
+export type TrainLogRow = Record<string, unknown>;
+
+export type TrainLogResponse = {
+  run_id: string;
+  train_log: TrainLogRow[];
+};
+
+export type IterationSummaryItem = {
+  iteration: number;
+  output_dir?: string;
+  mean_iou?: number;
+  mean_dice?: number;
+  health_score?: number;
+  issues?: string[];
+  best_val_iou?: number;
+};
+
+export type IterationsResponse = {
+  iterations: IterationSummaryItem[];
+};
+
 export type ClassBalanceRow = Record<string, unknown>;
 
 export type ClassBalanceResponse = {
