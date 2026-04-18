@@ -1,0 +1,73 @@
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# ------------------------------
+# Backend runtime / generated outputs
+# ------------------------------
+runs/
+logs/
+*.log
+STOP
+launcher_info.json
+
+# Model artifacts
+*.pth
+*.pt
+*.onnx
+*.ckpt
+
+# Generated data / predictions / temp folders
+predictions/
+outputs/
+outputs_iter_*/
+prepared_dataset/
+_temp_masks/
+*.tmp
+*.bak
+
+# ------------------------------
+# Frontend
+# ------------------------------
+node_modules/
+dist/
+.vite/
+
+# ------------------------------
+# Environment / secrets
+# ------------------------------
+.env
+.env.*
+!.env.example
+
+# ------------------------------
+# IDE / OS
+# ------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ------------------------------
+# Jupyter
+# ------------------------------
+.ipynb_checkpoints/
+
+# ------------------------------
+# Optional local test/demo artifacts
+# ------------------------------
+*.sqlite3
