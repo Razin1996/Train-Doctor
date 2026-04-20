@@ -1,5 +1,6 @@
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { FolderSearch } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +29,7 @@ const navItems = [
   { title: "Failure Cases", url: "/failures", icon: AlertTriangle },
   { title: "Diagnosis", url: "/diagnosis", icon: Search },
   { title: "Recommendations", url: "/recommendations", icon: Lightbulb },
+  { title: "Runs History", url: "/runs-history", icon: FolderSearch },
 ];
 
 export function AppSidebar() {

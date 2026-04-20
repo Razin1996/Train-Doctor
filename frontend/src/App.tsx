@@ -11,6 +11,7 @@ import DiagnosisPage from "@/pages/DiagnosisPage";
 import RecommendationsPage from "@/pages/RecommendationsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
+import RunsHistoryPage from "@/pages/RunHistoryPage";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/failures" element={<FailureCasesPage />} />
             <Route path="/diagnosis" element={<DiagnosisPage />} />
             <Route path="/recommendations" element={<RecommendationsPage />} />
+            <Route path="/runs-history" element={<RunsHistoryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
