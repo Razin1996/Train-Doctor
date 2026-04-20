@@ -41,6 +41,34 @@ def _class_balance_df(run_id: str):
     return None
 
 
+def _clean_config_dict(config: dict):
+    if not isinstance(config, dict):
+        return {}
+
+    cleaned = {}
+    for key, value in config.items():
+        if value is None:
+            continue
+
+        if isinstance(value, str) and value.strip().lower() == "unknown":
+            continue
+
+        if isinstance(value, dict):
+            nested = {
+                k: v
+                for k, v in value.items()
+                if v is not None
+                and not (isinstance(v, str) and v.strip().lower() == "unknown")
+            }
+            if nested:
+                cleaned[key] = nested
+            continue
+
+        cleaned[key] = value
+
+    return cleaned
+
+
 def _safe_load_findings(run_id: str, include_class_ids: list[int] | None = None):
     artifacts = inspect_run_artifacts(run_id)
 
@@ -55,13 +83,20 @@ def _safe_load_findings(run_id: str, include_class_ids: list[int] | None = None)
     class_names = _class_names_from_run(run_id)
 
     if not train_log_path or not per_image_path:
-        return None, "Diagnosis needs train_log.csv and per_image_metrics.csv. Summary metrics can still be shown.", artifacts, selected_ids, [class_names[i] for i in selected_ids]
+        return (
+            None,
+            "Diagnosis needs train_log.csv and per_image_metrics.csv. Summary metrics can still be shown.",
+            artifacts,
+            selected_ids,
+            [class_names[i] for i in selected_ids],
+        )
 
     try:
         train_log = pd.read_csv(train_log_path)
         per_image = pd.read_csv(per_image_path)
         test_metrics = pd.read_csv(test_metrics_path)
         class_balance_df = _class_balance_df(run_id)
+
         findings = build_findings(
             train_log,
             per_image,
@@ -69,6 +104,7 @@ def _safe_load_findings(run_id: str, include_class_ids: list[int] | None = None)
             class_balance_df,
             active_class_ids=selected_ids,
         )
+
         return {
             "findings": findings,
             "train_log": train_log,
@@ -76,12 +112,23 @@ def _safe_load_findings(run_id: str, include_class_ids: list[int] | None = None)
             "test_metrics": test_metrics,
             "class_names": class_names,
         }, None, artifacts, selected_ids, findings["selected_class_names"]
+
     except Exception as exc:
-        return None, f"Could not build diagnosis: {exc}", artifacts, selected_ids, [class_names[i] for i in selected_ids]
+        return (
+            None,
+            f"Could not build diagnosis: {exc}",
+            artifacts,
+            selected_ids,
+            [class_names[i] for i in selected_ids],
+        )
 
 
 def get_diagnosis(run_id: str, include_class_ids: list[int] | None = None):
-    loaded, error, artifacts, selected_ids, selected_names = _safe_load_findings(run_id, include_class_ids)
+    loaded, error, artifacts, selected_ids, selected_names = _safe_load_findings(
+        run_id,
+        include_class_ids,
+    )
+
     if loaded is None:
         return {
             "run_id": run_id,
@@ -96,12 +143,19 @@ def get_diagnosis(run_id: str, include_class_ids: list[int] | None = None):
         }
 
     findings = loaded["findings"]
+
     return {
         "run_id": run_id,
         "health_score": findings["health_score"],
-        "findings": findings["all_findings_df"].to_dict(orient="records") if len(findings["all_findings_df"]) else [],
-        "label_noise": findings["label_noise_df"].to_dict(orient="records") if len(findings["label_noise_df"]) else [],
-        "imbalance": findings["imbalance_df"].to_dict(orient="records") if len(findings["imbalance_df"]) else [],
+        "findings": findings["all_findings_df"].to_dict(orient="records")
+        if len(findings["all_findings_df"])
+        else [],
+        "label_noise": findings["label_noise_df"].to_dict(orient="records")
+        if len(findings["label_noise_df"])
+        else [],
+        "imbalance": findings["imbalance_df"].to_dict(orient="records")
+        if len(findings["imbalance_df"])
+        else [],
         "warning": None,
         "artifacts": artifacts,
         "selected_class_ids": selected_ids,
@@ -110,7 +164,11 @@ def get_diagnosis(run_id: str, include_class_ids: list[int] | None = None):
 
 
 def get_recommendations(run_id: str, include_class_ids: list[int] | None = None):
-    loaded, error, artifacts, selected_ids, selected_names = _safe_load_findings(run_id, include_class_ids)
+    loaded, error, artifacts, selected_ids, selected_names = _safe_load_findings(
+        run_id,
+        include_class_ids,
+    )
+
     if loaded is None:
         return {
             "run_id": run_id,
@@ -130,14 +188,14 @@ def get_recommendations(run_id: str, include_class_ids: list[int] | None = None)
     run_cfg = read_json(run_cfg_path, {}) if run_cfg_path else {}
 
     current_config = {
-        "model_name": run_cfg.get("model_name", "unet"),
+        "model_name": run_cfg.get("model_name"),
         "num_classes": len(class_names),
-        "image_size": run_cfg.get("image_size", 512),
-        "batch_size": run_cfg.get("batch_size", 4),
+        "image_size": run_cfg.get("image_size"),
+        "batch_size": run_cfg.get("batch_size"),
         "epochs": run_cfg.get("epochs", 15),
-        "learning_rate": run_cfg.get("learning_rate", 1e-4),
-        "optimizer": "AdamW",
-        "loss": "CrossEntropyLoss",
+        "learning_rate": run_cfg.get("learning_rate"),
+        "optimizer": run_cfg.get("optimizer", "AdamW"),
+        "loss": run_cfg.get("loss", "CrossEntropyLoss"),
         "augmentation": {
             "horizontal_flip": True,
             "vertical_flip": True,
@@ -157,8 +215,10 @@ def get_recommendations(run_id: str, include_class_ids: list[int] | None = None)
 
     return {
         "run_id": run_id,
-        "recommendations": findings["improved_recommendation_df"].to_dict(orient="records") if len(findings["improved_recommendation_df"]) else [],
-        "suggested_config": suggested_config,
+        "recommendations": findings["improved_recommendation_df"].to_dict(orient="records")
+        if len(findings["improved_recommendation_df"])
+        else [],
+        "suggested_config": _clean_config_dict(suggested_config),
         "notes": notes,
         "warning": None,
         "artifacts": artifacts,
@@ -168,7 +228,11 @@ def get_recommendations(run_id: str, include_class_ids: list[int] | None = None)
 
 
 def get_failure_groups(run_id: str, include_class_ids: list[int] | None = None):
-    loaded, error, artifacts, selected_ids, selected_names = _safe_load_findings(run_id, include_class_ids)
+    loaded, error, artifacts, selected_ids, selected_names = _safe_load_findings(
+        run_id,
+        include_class_ids,
+    )
+
     if loaded is None:
         return {
             "run_id": run_id,
@@ -181,12 +245,23 @@ def get_failure_groups(run_id: str, include_class_ids: list[int] | None = None):
         }
 
     findings = loaded["findings"]
+
     return {
         "run_id": run_id,
-        "failure_groups": findings["failure_group_summary"].to_dict(orient="records") if len(findings["failure_group_summary"]) else [],
-        "worst_images": findings["worst_images_df"][["image_name", "mean_iou", "mean_dice", "failure_type"]].to_dict(orient="records") if len(findings["worst_images_df"]) else [],
+        "failure_groups": findings["failure_group_summary"].to_dict(orient="records")
+        if len(findings["failure_group_summary"])
+        else [],
+        "worst_images": findings["worst_images_df"][
+            ["image_name", "mean_iou", "mean_dice", "failure_type"]
+        ].to_dict(orient="records")
+        if len(findings["worst_images_df"])
+        else [],
         "warning": None,
         "artifacts": artifacts,
         "selected_class_ids": selected_ids,
         "selected_class_names": selected_names,
     }
+
+
+def _load_findings(run_id: str, include_class_ids: list[int] | None = None):
+    return _safe_load_findings(run_id, include_class_ids)

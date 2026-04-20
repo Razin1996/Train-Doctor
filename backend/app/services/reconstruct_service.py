@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import json
 
 import cv2
 import numpy as np
@@ -23,6 +22,22 @@ def _safe_read_csv(path: Path | None) -> pd.DataFrame:
         return pd.read_csv(path)
     except Exception:
         return pd.DataFrame()
+
+
+def _clean_dict(data: dict) -> dict:
+    cleaned = {}
+    for key, value in data.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and value.strip().lower() == "unknown":
+            continue
+        if isinstance(value, dict):
+            nested = _clean_dict(value)
+            if nested:
+                cleaned[key] = nested
+            continue
+        cleaned[key] = value
+    return cleaned
 
 
 def _infer_prediction_mask_files(predictions_dir: Path):
@@ -53,23 +68,20 @@ def _reconstruct_pipeline_config(run_dir: Path, run_id: str):
 
     reconstructed = {
         "reconstructed": True,
-        "model_name": "unknown",
-        "image_size": None,
-        "batch_size": None,
         "epochs": int(len(train_log)) if len(train_log) else None,
-        "learning_rate": None,
-        "class_names": classes,
+        "num_test_images": (
+            test_metrics.iloc[0].to_dict().get("num_test_images")
+            if len(test_metrics)
+            else None
+        ),
+        "class_names": classes if classes else None,
         "notes": [
             "This file was reconstructed from available outputs.",
-            "Some fields may be unknown because the original training config was not available.",
+            "Some original training settings were not available and were omitted."
         ],
     }
 
-    if len(test_metrics):
-        row = test_metrics.iloc[0].to_dict()
-        if "num_test_images" in row:
-            reconstructed["num_test_images"] = row["num_test_images"]
-
+    reconstructed = _clean_dict(reconstructed)
     write_json(run_dir / "pipeline_config.json", reconstructed)
     return {"created": True, "path": str(run_dir / "pipeline_config.json")}
 
@@ -100,16 +112,19 @@ def _reconstruct_iteration_summaries(run_dir: Path, run_id: str):
     payload = {
         "reconstructed": True,
         "iterations": [
-            {
-                "iteration": 1,
-                "output_dir": str(best_output_dir) if best_output_dir else str(source_root),
-                "mean_iou": mean_iou,
-                "mean_dice": mean_dice,
-                "best_val_iou": best_val_iou,
-                "issues": [],
-            }
+            _clean_dict(
+                {
+                    "iteration": 1,
+                    "output_dir": str(best_output_dir) if best_output_dir else str(source_root),
+                    "mean_iou": mean_iou,
+                    "mean_dice": mean_dice,
+                    "best_val_iou": best_val_iou,
+                    "issues": [],
+                }
+            )
         ],
     }
+
     write_json(run_dir / "iteration_summaries.json", payload)
     return {"created": True, "path": str(run_dir / "iteration_summaries.json")}
 
@@ -122,11 +137,14 @@ def _reconstruct_final_summary(run_dir: Path, run_id: str):
     iteration_data = read_json(run_dir / "iteration_summaries.json", {})
     _, source_root, best_output_dir = resolve_run_paths(run_id)
 
-    payload = {
-        "reconstructed": True,
-        "best_output_dir": str(best_output_dir) if best_output_dir else str(source_root),
-        "iterations": iteration_data.get("iterations", []),
-    }
+    payload = _clean_dict(
+        {
+            "reconstructed": True,
+            "best_output_dir": str(best_output_dir) if best_output_dir else str(source_root),
+            "iterations": iteration_data.get("iterations", []),
+        }
+    )
+
     write_json(run_dir / "final_summary.json", payload)
     return {"created": True, "path": str(run_dir / "final_summary.json")}
 

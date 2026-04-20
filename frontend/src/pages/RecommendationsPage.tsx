@@ -391,15 +391,6 @@ export default function RecommendationsPage() {
             Download Explanation
           </button>
 
-          <button
-            type="button"
-            onClick={handleDownloadConfig}
-            disabled={!activeSuggestedConfig || Object.keys(activeSuggestedConfig).length === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-secondary/20 px-5 py-3 text-sm font-medium text-foreground transition hover:bg-secondary/30 disabled:opacity-50"
-          >
-            <FileJson className="h-4 w-4" />
-            Download Suggested Config
-          </button>
         </div>
 
         {explanationMutation.data?.explanation && (
@@ -501,9 +492,21 @@ export default function RecommendationsPage() {
       </motion.div>
 
       <motion.div variants={item} className="rounded-2xl border border-border/60 bg-secondary/30 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Cpu className="h-5 w-5 text-primary" />
-          <h3 className="font-heading font-semibold">Suggested Next Config</h3>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Cpu className="h-5 w-5 text-primary" />
+            <h3 className="font-heading font-semibold">Suggested Next Config</h3>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadConfig}
+            disabled={!activeSuggestedConfig || Object.keys(activeSuggestedConfig).length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-secondary/20 px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-secondary/30 disabled:opacity-50"
+          >
+            <FileJson className="h-4 w-4" />
+            Download Config
+          </button>
         </div>
 
         {suggestedConfigKeys.length > 0 ? (
