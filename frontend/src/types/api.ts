@@ -135,3 +135,15 @@ export type RecommendationsResponse = {
   selected_class_ids?: number[];
   selected_class_names?: string[];
 };
+
+export type ExplanationResponse = {
+  run_id: string;
+  backend: "rule_based" | "ollama" | "openai";
+  explanation: string;
+  suggested_config?: Record<string, unknown>;
+  recommendations?: Array<{ recommendation: string }>;
+  notes?: string[];
+  warning?: string | null;
+  selected_class_ids?: number[];
+  selected_class_names?: string[];
+};

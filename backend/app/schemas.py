@@ -34,6 +34,8 @@ class ExplanationRequest(BaseModel):
     ollama_url: Optional[str] = "http://localhost:11434"
     ollama_model: Optional[str] = "llama3.1:8b"
     openai_model: Optional[str] = "gpt-5.4-mini"
+    openai_api_key: Optional[str] = None
+    include_class_ids: Optional[list[int]] = None
 
 
 class ExistingRunImportRequest(BaseModel):

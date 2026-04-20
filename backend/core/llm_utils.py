@@ -19,59 +19,80 @@ def generate_ollama_explanation(prompt, model_name, base_url):
     payload = {
         "model": model_name,
         "messages": [
-            {"role": "system", "content": "You are a precise ML segmentation debugging assistant."},
+            {
+                "role": "system",
+                "content": "You are a precise ML segmentation debugging assistant."
+            },
             {"role": "user", "content": prompt},
         ],
         "stream": False,
     }
+
     try:
-        response = requests.post(f"{base_url.rstrip('/')}/api/chat", json=payload, timeout=180)
+        response = requests.post(
+            f"{base_url.rstrip('/')}/api/chat",
+            json=payload,
+            timeout=180,
+        )
         response.raise_for_status()
         data = response.json()
         return data["message"]["content"], None
     except Exception as e:
-        return None, f"Ollama call failed: {e}"
+        return "", f"Ollama call failed: {e}"
 
 
-def generate_openai_explanation(prompt, model_name):
+def generate_openai_explanation(prompt, model, openai_api_key=None):
     if OpenAI is None:
-        return None, "Install openai first: pip install openai"
+        return "", "Install openai first: pip install openai"
+
     import os
-    api_key = os.getenv("OPENAI_API_KEY")
+
+    api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
     if not api_key:
-        return None, "OPENAI_API_KEY is not set."
+        return "", "OpenAI API key is not provided."
+
     try:
         client = OpenAI(api_key=api_key)
+
         response = client.responses.create(
-            model=model_name,
+            model=model,
             instructions="You are a precise ML segmentation debugging assistant.",
             input=prompt,
         )
+
         return response.output_text, None
     except Exception as e:
-        return None, f"OpenAI call failed: {e}"
+        return "", f"OpenAI call failed: {e}"
 
 
 def generate_rule_based_explanation(findings_df, recommendations_df, health_score, failure_group_df):
-    lines = [f"## Executive summary", f"Dataset health score is {health_score}/100.", ""]
+    lines = [
+        "## Executive Summary",
+        f"Dataset health score is **{health_score}/100**.",
+        "",
+    ]
+
     if len(findings_df) == 0:
         lines.append("No major issues were detected from the current rule-based checks.")
     else:
-        lines.append("Main issues detected:")
+        lines.append("## What Is Going Wrong")
         for _, row in findings_df.head(5).iterrows():
-            lines.append(f"- {row['issue']}: {row['evidence']}")
-    lines.extend(["", "## Highest-priority next actions"])
+            lines.append(f"- **{row['issue']}**: {row['evidence']}")
+
+    lines.extend(["", "## Highest-Priority Next Actions"])
     if len(recommendations_df) == 0:
         lines.append("- No recommendation was triggered.")
     else:
         for _, row in recommendations_df.head(5).iterrows():
             lines.append(f"- {row['recommendation']}")
-    lines.extend(["", "## Failure groups"])
+
+    lines.extend(["", "## Failure Groups"])
     if len(failure_group_df) == 0:
         lines.append("- No grouped failures.")
     else:
         for _, row in failure_group_df.head(5).iterrows():
-            lines.append(f"- {row['failure_type']}: {row['count']}")
+            lines.append(f"- **{row['failure_type']}**: {row['count']}")
+
     return "\n".join(lines)
 
 
@@ -81,16 +102,22 @@ def build_llm_prompt(findings_df, recommendations_df, suggested_config, health_s
         for _, row in findings_df.head(12).iterrows()
     ) if len(findings_df) else "- No findings"
 
-    rec_text = "\n".join(f"- {row['recommendation']}" for _, row in recommendations_df.head(12).iterrows()) \
-        if len(recommendations_df) else "- No recommendations"
+    rec_text = "\n".join(
+        f"- {row['recommendation']}"
+        for _, row in recommendations_df.head(12).iterrows()
+    ) if len(recommendations_df) else "- No recommendations"
 
-    failure_text = "\n".join(f"- {row['failure_type']}: {row['count']}" for _, row in failure_group_df.head(10).iterrows()) \
-        if len(failure_group_df) else "- No grouped failures"
+    failure_text = "\n".join(
+        f"- {row['failure_type']}: {row['count']}"
+        for _, row in failure_group_df.head(10).iterrows()
+    ) if len(failure_group_df) else "- No grouped failures"
 
     return f"""
 You are an expert ML segmentation training diagnostician.
 
-Analyze this segmentation training run and produce a concise but insightful diagnosis.
+Analyze this segmentation training run and produce:
+1. A markdown explanation
+2. A structured JSON object
 
 Dataset health score: {health_score}/100
 
@@ -103,15 +130,48 @@ Failure groups:
 Current auto recommendations:
 {rec_text}
 
-Suggested next configuration:
+Current suggested config:
 {json.dumps(suggested_config, indent=2)}
 
-Write your answer in these sections:
-1. Executive summary
-2. What is going wrong
-3. Likely root causes
-4. Highest-priority next actions
-5. Whether data review or training changes should come first
+Return your output in EXACTLY this format:
 
-Be specific. Avoid generic filler. Refer to the provided evidence.
+ANALYSIS_MARKDOWN_START
+## Executive Summary
+...
+## What Is Going Wrong
+...
+## Likely Root Causes
+...
+## Highest-Priority Next Actions
+...
+## Whether Data Review or Training Changes Should Come First
+...
+ANALYSIS_MARKDOWN_END
+
+STRUCTURED_JSON_START
+{{
+  "recommended_actions": [
+    "action 1",
+    "action 2"
+  ],
+  "notes": [
+    "note 1",
+    "note 2"
+  ],
+  "suggested_config": {{
+    "model_name": "...",
+    "image_size": 512,
+    "batch_size": 4,
+    "epochs": 20,
+    "learning_rate": 0.0001
+  }}
+}}
+STRUCTURED_JSON_END
+
+Rules:
+- The markdown section must be readable and concise.
+- The JSON must be valid JSON.
+- Do not include null values in suggested_config if you can avoid them.
+- If a field is unknown, omit it instead of using null.
+- Keep suggested_config practical and specific.
 """.strip()

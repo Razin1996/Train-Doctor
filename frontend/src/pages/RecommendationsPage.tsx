@@ -1,23 +1,31 @@
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   AlertTriangle,
   CheckCircle2,
   ClipboardList,
   Cpu,
+  Download,
   FileJson,
   Lightbulb,
   Search,
-  Settings2,
+  Wand2,
 } from "lucide-react";
 
 import { ClassFilter } from "@/components/ClassFilter";
 import { JsonBlock } from "@/components/JsonBlock";
 import { useCurrentRun } from "@/hooks/useCurrentRun";
 import { useRunClasses } from "@/hooks/useRunClasses";
-import { getRecommendations, getRunArtifacts } from "@/api/traindoctor";
+import {
+  generateExplanation,
+  getRecommendations,
+  getRunArtifacts,
+} from "@/api/traindoctor";
 import type {
+  ExplanationResponse,
   RecommendationsResponse,
   RunArtifactsResponse,
 } from "@/types/api";
@@ -38,6 +46,15 @@ export default function RecommendationsPage() {
 
   const [searchText, setSearchText] = useState("");
 
+  const [explanationBackend, setExplanationBackend] = useState<
+    "rule_based" | "ollama" | "openai"
+  >("rule_based");
+
+  const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434");
+  const [ollamaModel, setOllamaModel] = useState("llama3.1:8b");
+  const [openaiModel, setOpenaiModel] = useState("gpt-5.4-mini");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+
   const artifactsQuery = useQuery({
     queryKey: ["recommendations-artifacts", runId],
     queryFn: async () => {
@@ -56,33 +73,75 @@ export default function RecommendationsPage() {
     enabled: !!runId && classesHook.selectedClassIds.length > 0,
   });
 
-  const recommendations = recommendationsQuery.data?.recommendations ?? [];
-  const suggestedConfig = recommendationsQuery.data?.suggested_config ?? {};
-  const notes = recommendationsQuery.data?.notes ?? [];
+  const explanationMutation = useMutation({
+    mutationFn: async () => {
+      if (!runId) throw new Error("No run selected");
+
+      const payload: {
+        backend: "rule_based" | "ollama" | "openai";
+        ollama_url?: string;
+        ollama_model?: string;
+        openai_model?: string;
+        openai_api_key?: string;
+        include_class_ids?: number[];
+      } = {
+        backend: explanationBackend,
+        include_class_ids: classesHook.selectedClassIds,
+      };
+
+      if (explanationBackend === "ollama") {
+        payload.ollama_url = ollamaUrl;
+        payload.ollama_model = ollamaModel;
+      }
+
+      if (explanationBackend === "openai") {
+        payload.openai_model = openaiModel;
+        payload.openai_api_key = openaiApiKey;
+      }
+
+      const res = await generateExplanation(runId, payload);
+      return res.data as ExplanationResponse;
+    },
+  });
+
+  const activeRecommendations =
+    explanationMutation.data?.recommendations?.length
+      ? explanationMutation.data.recommendations
+      : recommendationsQuery.data?.recommendations ?? [];
+
+  const activeNotes =
+    explanationMutation.data?.notes?.length
+      ? explanationMutation.data.notes
+      : recommendationsQuery.data?.notes ?? [];
+
+  const activeSuggestedConfig =
+    explanationMutation.data?.suggested_config &&
+    Object.keys(explanationMutation.data.suggested_config).length > 0
+      ? explanationMutation.data.suggested_config
+      : recommendationsQuery.data?.suggested_config ?? {};
 
   const filteredRecommendations = useMemo(() => {
     const text = searchText.trim().toLowerCase();
-    if (!text) return recommendations;
+    if (!text) return activeRecommendations;
 
-    return recommendations.filter((row) =>
-      String(row.recommendation ?? "")
-        .toLowerCase()
-        .includes(text),
+    return activeRecommendations.filter((row) =>
+      String(row.recommendation ?? "").toLowerCase().includes(text),
     );
-  }, [recommendations, searchText]);
+  }, [activeRecommendations, searchText]);
 
   const filteredNotes = useMemo(() => {
     const text = searchText.trim().toLowerCase();
-    if (!text) return notes;
+    if (!text) return activeNotes;
 
-    return notes.filter((note) => note.toLowerCase().includes(text));
-  }, [notes, searchText]);
+    return activeNotes.filter((note) => note.toLowerCase().includes(text));
+  }, [activeNotes, searchText]);
 
   const warnings = [
     ...(artifactsQuery.data?.missing_required ?? []).map(
       (name) => `Required file missing: ${name}`,
     ),
     ...(recommendationsQuery.data?.warning ? [recommendationsQuery.data.warning] : []),
+    ...(explanationMutation.data?.warning ? [explanationMutation.data.warning] : []),
   ];
 
   const uniqueWarnings = [...new Set(warnings)];
@@ -91,7 +150,43 @@ export default function RecommendationsPage() {
     artifactsQuery.isLoading ||
     recommendationsQuery.isLoading;
 
-  const suggestedConfigKeys = Object.keys(suggestedConfig);
+  const suggestedConfigKeys = Object.keys(activeSuggestedConfig || {});
+
+  const handleDownloadExplanation = () => {
+    const explanation = explanationMutation.data?.explanation;
+    if (!explanation) return;
+
+    const blob = new Blob([explanation], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `explanation_${runId || "run"}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadConfig = () => {
+    if (!activeSuggestedConfig || Object.keys(activeSuggestedConfig).length === 0) return;
+
+    const blob = new Blob(
+      [JSON.stringify(activeSuggestedConfig, null, 2)],
+      { type: "application/json;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `suggested_config_${runId || "run"}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  };
 
   if (!runId) {
     return (
@@ -120,16 +215,8 @@ export default function RecommendationsPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-card p-6 h-28 animate-pulse bg-secondary/30" />
-          <div className="glass-card p-6 h-28 animate-pulse bg-secondary/30" />
-          <div className="glass-card p-6 h-28 animate-pulse bg-secondary/30" />
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div className="glass-card p-6 h-80 animate-pulse bg-secondary/30" />
-          <div className="glass-card p-6 h-80 animate-pulse bg-secondary/30" />
-        </div>
+        <div className="glass-card p-6 h-[420px] animate-pulse bg-secondary/30" />
+        <div className="glass-card p-6 h-80 animate-pulse bg-secondary/30" />
       </div>
     );
   }
@@ -169,45 +256,165 @@ export default function RecommendationsPage() {
         </motion.div>
       )}
 
-      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="rounded-2xl border border-border/60 bg-secondary/30 p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <ClipboardList className="h-5 w-5 text-primary" />
-            <h3 className="font-heading font-semibold">Recommendations</h3>
-          </div>
-          <p className="text-4xl font-bold text-foreground">
-            {filteredRecommendations.length}
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Actionable items for the selected class set
-          </p>
+      <motion.div variants={item} className="rounded-2xl border border-border/60 bg-secondary/30 p-6">
+        <h3 className="font-heading font-semibold mb-3">Explanation Engine</h3>
+        <p className="text-sm text-muted-foreground mb-5">
+          Generate an explanation and updated suggested config for the currently selected classes.
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+          <button
+            type="button"
+            onClick={() => setExplanationBackend("rule_based")}
+            className={`rounded-2xl border p-4 text-left transition ${
+              explanationBackend === "rule_based"
+                ? "border-primary/40 bg-primary/10"
+                : "border-border/60 bg-secondary/20 hover:bg-secondary/30"
+            }`}
+          >
+            <p className="font-medium text-foreground">Rule-based</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Default mode using structured findings
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setExplanationBackend("ollama")}
+            className={`rounded-2xl border p-4 text-left transition ${
+              explanationBackend === "ollama"
+                ? "border-primary/40 bg-primary/10"
+                : "border-border/60 bg-secondary/20 hover:bg-secondary/30"
+            }`}
+          >
+            <p className="font-medium text-foreground">Ollama</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Local model using Ollama endpoint
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setExplanationBackend("openai")}
+            className={`rounded-2xl border p-4 text-left transition ${
+              explanationBackend === "openai"
+                ? "border-primary/40 bg-primary/10"
+                : "border-border/60 bg-secondary/20 hover:bg-secondary/30"
+            }`}
+          >
+            <p className="font-medium text-foreground">ChatGPT / OpenAI</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Requires API key and model
+            </p>
+          </button>
         </div>
 
-        <div className="rounded-2xl border border-border/60 bg-secondary/30 p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="h-5 w-5 text-primary" />
-            <h3 className="font-heading font-semibold">Backend Notes</h3>
+        {explanationBackend === "ollama" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">
+                Ollama URL
+              </label>
+              <input
+                value={ollamaUrl}
+                onChange={(e) => setOllamaUrl(e.target.value)}
+                className="h-[48px] w-full rounded-2xl border border-border/60 bg-secondary/20 px-4 text-sm text-foreground outline-none transition focus:border-primary/40"
+                placeholder="http://localhost:11434"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">
+                Ollama Model
+              </label>
+              <input
+                value={ollamaModel}
+                onChange={(e) => setOllamaModel(e.target.value)}
+                className="h-[48px] w-full rounded-2xl border border-border/60 bg-secondary/20 px-4 text-sm text-foreground outline-none transition focus:border-primary/40"
+                placeholder="llama3.1:8b"
+              />
+            </div>
           </div>
-          <p className="text-4xl font-bold text-foreground">
-            {filteredNotes.length}
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Reasoning notes used to build the next config
-          </p>
+        )}
+
+        {explanationBackend === "openai" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">
+                OpenAI API Key
+              </label>
+              <input
+                type="password"
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+                className="h-[48px] w-full rounded-2xl border border-border/60 bg-secondary/20 px-4 text-sm text-foreground outline-none transition focus:border-primary/40"
+                placeholder="sk-..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-muted-foreground mb-2">
+                OpenAI Model
+              </label>
+              <input
+                value={openaiModel}
+                onChange={(e) => setOpenaiModel(e.target.value)}
+                className="h-[48px] w-full rounded-2xl border border-border/60 bg-secondary/20 px-4 text-sm text-foreground outline-none transition focus:border-primary/40"
+                placeholder="gpt-5.4-mini"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-3 mb-5">
+          <button
+            type="button"
+            onClick={() => explanationMutation.mutate()}
+            disabled={
+              explanationMutation.isPending ||
+              !runId ||
+              (explanationBackend === "openai" && !openaiApiKey.trim())
+            }
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#cf7047] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            <Wand2 className="h-4 w-4" />
+            {explanationMutation.isPending ? "Generating..." : "Generate Explanation"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadExplanation}
+            disabled={!explanationMutation.data?.explanation}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-secondary/20 px-5 py-3 text-sm font-medium text-foreground transition hover:bg-secondary/30 disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            Download Explanation
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadConfig}
+            disabled={!activeSuggestedConfig || Object.keys(activeSuggestedConfig).length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-secondary/20 px-5 py-3 text-sm font-medium text-foreground transition hover:bg-secondary/30 disabled:opacity-50"
+          >
+            <FileJson className="h-4 w-4" />
+            Download Suggested Config
+          </button>
         </div>
 
-        <div className="rounded-2xl border border-border/60 bg-secondary/30 p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <FileJson className="h-5 w-5 text-primary" />
-            <h3 className="font-heading font-semibold">Config Fields</h3>
+        {explanationMutation.data?.explanation && (
+          <div className="rounded-2xl border border-border/60 bg-secondary/20 p-6">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-4">
+              Generated Explanation ({explanationMutation.data.backend})
+            </p>
+
+            <div className="prose prose-invert max-w-none prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {explanationMutation.data.explanation}
+              </ReactMarkdown>
+            </div>
           </div>
-          <p className="text-4xl font-bold text-foreground">
-            {suggestedConfigKeys.length}
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Keys included in the generated next-run config
-          </p>
-        </div>
+        )}
       </motion.div>
 
       <motion.div variants={item} className="rounded-2xl border border-border/60 bg-secondary/30 p-6">
@@ -300,41 +507,10 @@ export default function RecommendationsPage() {
         </div>
 
         {suggestedConfigKeys.length > 0 ? (
-          <JsonBlock value={suggestedConfig} />
+          <JsonBlock value={activeSuggestedConfig} />
         ) : (
           <div className="rounded-2xl border border-border/50 bg-secondary/20 p-6 text-sm text-muted-foreground">
             No generated config is available for this run.
-          </div>
-        )}
-      </motion.div>
-
-      <motion.div variants={item} className="rounded-2xl border border-border/60 bg-secondary/30 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Settings2 className="h-5 w-5 text-primary" />
-          <h3 className="font-heading font-semibold">Quick Config Summary</h3>
-        </div>
-
-        {suggestedConfigKeys.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {suggestedConfigKeys.map((key) => (
-              <div
-                key={key}
-                className="rounded-2xl border border-border/50 bg-secondary/20 p-4"
-              >
-                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
-                  {key}
-                </p>
-                <p className="text-sm text-foreground break-words">
-                  {typeof suggestedConfig[key] === "object"
-                    ? JSON.stringify(suggestedConfig[key])
-                    : String(suggestedConfig[key])}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-border/50 bg-secondary/20 p-6 text-sm text-muted-foreground">
-            No config fields available.
           </div>
         )}
       </motion.div>

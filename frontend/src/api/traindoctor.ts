@@ -68,3 +68,16 @@ export const compareRuns = (runA: string, runB: string) =>
 
 export const reconstructMissingArtifacts = (runId: string) =>
   api.post(`/runs/${runId}/reconstruct-missing`);
+
+export const generateExplanation = (
+  runId: string,
+  payload: {
+    backend: "rule_based" | "ollama" | "openai";
+    ollama_url?: string;
+    ollama_model?: string;
+    openai_model?: string;
+    openai_api_key?: string;
+    include_class_ids?: number[];
+  },
+) =>
+  api.post(`/runs/${runId}/explanation`, payload);
