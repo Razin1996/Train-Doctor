@@ -42,6 +42,8 @@ import {
   Cell,
 } from "recharts";
 
+const HEALTH_THRESHOLD = 75; // you can adjust
+
 const container = {
   hidden: {},
   show: { transition: { staggerChildren: 0.08 } },
@@ -195,6 +197,7 @@ export default function OverviewPage() {
       : null;
 
   const healthScore = diagnosisQuery.data?.health_score ?? 0;
+  const isLowHealth = healthScore < HEALTH_THRESHOLD;
 
   const numTestImages =
     asNumber(testMetricsRow?.num_test_images) ??
@@ -364,7 +367,8 @@ export default function OverviewPage() {
           title="Health Score"
           value={`${healthScore}/100`}
           icon={Activity}
-          highlight={healthScore < 70}
+          highlight={isLowHealth}
+          alertGlow={isLowHealth}
           subtitle={healthSubtitle}
         />
       </motion.div>

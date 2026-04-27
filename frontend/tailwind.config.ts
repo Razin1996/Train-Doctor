@@ -53,4 +53,24 @@ const config: Config = {
   plugins: [],
 }
 
+module.exports = {
+  theme: {
+    extend: {
+      keyframes: {
+        glowPulse: {
+          '0%, 100%': {
+            boxShadow: '0 0 0px rgba(255, 100, 100, 0.4)',
+          },
+          '50%': {
+            boxShadow: '0 0 20px rgba(255, 80, 80, 0.9)',
+          },
+        },
+      },
+      animation: {
+        glowPulse: 'glowPulse 1.5s ease-in-out infinite',
+      },
+    },
+  },
+};
+
 export default config
