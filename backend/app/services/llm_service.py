@@ -2,6 +2,7 @@ import json
 import re
 
 from backend.app.services.diagnosis_service import _safe_load_findings, get_recommendations
+from backend.app.services.llm_eval_service import evaluate_llm_response
 from backend.core.llm_utils import (
     generate_rule_based_explanation,
     generate_ollama_explanation,
@@ -107,6 +108,14 @@ def generate_explanation(
             health_score,
             failure_group_summary,
         )
+
+        llm_evaluation = evaluate_llm_response(
+            llm_text=explanation,
+            suggested_config=fallback_suggested_config,
+            recommendations=fallback_recommendations,
+            notes=fallback_notes,
+        )
+
         return {
             "run_id": run_id,
             "backend": backend,
@@ -118,6 +127,7 @@ def generate_explanation(
             "suggested_config": fallback_suggested_config,
             "recommendations": fallback_recommendations,
             "notes": fallback_notes,
+            "llm_evaluation": llm_evaluation,
         }
 
     if backend == "ollama":
@@ -163,6 +173,16 @@ def generate_explanation(
     ]
 
     llm_suggested_config = _clean_config(structured.get("suggested_config", {}))
+    final_suggested_config = llm_suggested_config or fallback_suggested_config
+    final_recommendations = llm_recommendations or fallback_recommendations
+    final_notes = llm_notes or fallback_notes
+
+    llm_evaluation = evaluate_llm_response(
+        llm_text=explanation,
+        suggested_config=final_suggested_config,
+        recommendations=final_recommendations,
+        notes=final_notes,
+    )
 
     return {
         "run_id": run_id,
@@ -172,7 +192,8 @@ def generate_explanation(
         "selected_class_ids": selected_ids,
         "selected_class_names": selected_names,
         "artifacts": artifacts,
-        "suggested_config": llm_suggested_config or fallback_suggested_config,
-        "recommendations": llm_recommendations or fallback_recommendations,
-        "notes": llm_notes or fallback_notes,
+        "suggested_config": final_suggested_config,
+        "recommendations": final_recommendations,
+        "notes": final_notes,
+        "llm_evaluation": llm_evaluation,
     }

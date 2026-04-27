@@ -136,6 +136,18 @@ export type RecommendationsResponse = {
   selected_class_names?: string[];
 };
 
+export type LLMEvaluation = {
+  relevance: number;
+  faithfulness: number;
+  actionability: number;
+  clarity: number;
+  safety: number;
+  overall_score: number;
+  interpretation: string;
+  method: string;
+  human_review_required: boolean;
+};
+
 export type ExplanationResponse = {
   run_id: string;
   backend: "rule_based" | "ollama" | "openai";
@@ -146,4 +158,5 @@ export type ExplanationResponse = {
   warning?: string | null;
   selected_class_ids?: number[];
   selected_class_names?: string[];
+  llm_evaluation?: LLMEvaluation;
 };

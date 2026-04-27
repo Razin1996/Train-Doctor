@@ -12,6 +12,7 @@ import {
   FileJson,
   Lightbulb,
   Search,
+  ShieldCheck,
   Wand2,
 } from "lucide-react";
 
@@ -392,6 +393,73 @@ export default function RecommendationsPage() {
           </button>
 
         </div>
+
+        {explanationMutation.data?.llm_evaluation && (
+          <div className="rounded-2xl border border-border/60 bg-secondary/20 p-6 mb-5">
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <h3 className="font-heading font-semibold">LLM Evaluation</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+              <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                <p className="text-xs text-muted-foreground">Overall</p>
+                <p className="text-xl font-bold">
+                  {explanationMutation.data.llm_evaluation.overall_score}/5
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                <p className="text-xs text-muted-foreground">Relevance</p>
+                <p className="text-xl font-bold">
+                  {explanationMutation.data.llm_evaluation.relevance}/5
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                <p className="text-xs text-muted-foreground">Faithfulness</p>
+                <p className="text-xl font-bold">
+                  {explanationMutation.data.llm_evaluation.faithfulness}/5
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                <p className="text-xs text-muted-foreground">Actionability</p>
+                <p className="text-xl font-bold">
+                  {explanationMutation.data.llm_evaluation.actionability}/5
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                <p className="text-xs text-muted-foreground">Clarity</p>
+                <p className="text-xl font-bold">
+                  {explanationMutation.data.llm_evaluation.clarity}/5
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                <p className="text-xs text-muted-foreground">Safety</p>
+                <p className="text-xl font-bold">
+                  {explanationMutation.data.llm_evaluation.safety}/5
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-foreground">
+              {explanationMutation.data.llm_evaluation.interpretation}
+            </p>
+
+            <p className="text-xs text-muted-foreground mt-2">
+              {explanationMutation.data.llm_evaluation.method}
+            </p>
+
+            {explanationMutation.data.llm_evaluation.human_review_required && (
+              <p className="mt-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+                Human review is recommended before using this explanation.
+              </p>
+            )}
+          </div>
+        )}
 
         {explanationMutation.data?.explanation && (
           <div className="rounded-2xl border border-border/60 bg-secondary/20 p-6">
