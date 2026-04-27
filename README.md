@@ -141,5 +141,11 @@ TrainDoctor represents a shift from conventional machine learning pipelines towa
 
 ## Author
 
-Razin Bin Issa
-Artificial Intelligence, Robotics, and Environmental Systems
+**Razin Bin Issa**  
+Graduate Researcher | Artificial Intelligence, Robotics, and Environmental Systems  
+
+- **Website:** https://razin1996.github.io/My-Website/  
+- **LinkedIn:** https://www.linkedin.com/in/razin-bin-issa/ 
+- **Email:** [razinbinissa@gmail.com](mailto:razinbinissa@gmail.com?subject=TrainDoctor%20Inquiry) 
+
+Razin Bin Issa's research focuses on the development of intelligent, agent-driven systems for real-world applications. His work integrates machine learning, computer vision, and edge computing to address challenges in environmental monitoring, autonomous systems, and data-driven decision-making.
