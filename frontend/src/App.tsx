@@ -12,6 +12,7 @@ import RecommendationsPage from "@/pages/RecommendationsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 import RunsHistoryPage from "@/pages/RunHistoryPage";
+import CompareRunsPage from "@/pages/CompareRunsPage";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/diagnosis" element={<DiagnosisPage />} />
             <Route path="/recommendations" element={<RecommendationsPage />} />
             <Route path="/runs-history" element={<RunsHistoryPage />} />
+            <Route path="/compare" element={<CompareRunsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

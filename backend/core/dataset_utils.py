@@ -24,10 +24,20 @@ def parse_class_map_text(text: str):
 
 def detect_images(image_dir: str | Path):
     image_dir = Path(image_dir)
+
     exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+
     if not image_dir.exists():
         return []
-    return sorted([p for p in image_dir.iterdir() if p.suffix.lower() in exts])
+
+    image_files = sorted(
+        [
+            p for p in image_dir.rglob("*")
+            if p.is_file() and p.suffix.lower() in exts
+        ]
+    )
+
+    return image_files
 
 
 def infer_class_names_from_coco(coco_json_path: str | Path):

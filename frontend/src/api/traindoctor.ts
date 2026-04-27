@@ -61,10 +61,14 @@ export const getFailureGroups = (runId: string, includeClassIds?: number[]) =>
       : {},
   });
 
-export const compareRuns = (runA: string, runB: string) =>
-  api.get("/compare", {
-    params: { run_a: runA, run_b: runB },
+export function compareRuns(runA: string, runB: string) {
+  return api.get(`/compare`, {
+    params: {
+      run_a: runA,
+      run_b: runB,
+    },
   });
+}
 
 export const reconstructMissingArtifacts = (runId: string) =>
   api.post(`/runs/${runId}/reconstruct-missing`);

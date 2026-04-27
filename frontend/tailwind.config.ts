@@ -42,35 +42,36 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        warning: {
+          DEFAULT: "hsl(38 92% 50%)",
+          foreground: "hsl(48 96% 89%)",
+        },
+      },
+      fontFamily: {
+        heading: ["Space Grotesk", "sans-serif"],
+        sans: ["DM Sans", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-    },
-  },
-  plugins: [],
-}
-
-module.exports = {
-  theme: {
-    extend: {
       keyframes: {
         glowPulse: {
-          '0%, 100%': {
-            boxShadow: '0 0 0px rgba(255, 100, 100, 0.4)',
+          "0%, 100%": {
+            boxShadow: "0 0 0px rgba(255, 100, 100, 0.4)",
           },
-          '50%': {
-            boxShadow: '0 0 20px rgba(255, 80, 80, 0.9)',
+          "50%": {
+            boxShadow: "0 0 20px rgba(255, 80, 80, 0.9)",
           },
         },
       },
       animation: {
-        glowPulse: 'glowPulse 1.5s ease-in-out infinite',
+        glowPulse: "glowPulse 1.5s ease-in-out infinite",
       },
     },
   },
+  plugins: [],
 };
 
-export default config
+export default config;

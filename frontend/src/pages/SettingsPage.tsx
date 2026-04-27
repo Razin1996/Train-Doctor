@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,9 @@ const MASK_DIR_KEY = "traindoctor_mask_dir";
 const COCO_JSON_KEY = "traindoctor_coco_json_path";
 
 export default function SettingsPage() {
+  const imageFolderInputRef = useRef<HTMLInputElement | null>(null);
+  const maskFolderInputRef = useRef<HTMLInputElement | null>(null);
+  const cocoJsonInputRef = useRef<HTMLInputElement | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowMode>("Full Pipeline");
 
   const [imageDir, setImageDir] = useState(
@@ -289,12 +292,82 @@ export default function SettingsPage() {
     );
   };
 
+    const getSelectedPath = (files: FileList | null) => {
+      if (!files || files.length === 0) return "";
+
+      const firstFile = files[0] as File & {
+        webkitRelativePath?: string;
+        path?: string;
+      };
+
+      if (firstFile.path) {
+        return firstFile.path;
+      }
+
+      if (firstFile.webkitRelativePath) {
+        const parts = firstFile.webkitRelativePath.split("/");
+        return parts[0] || "";
+      }
+
+      return firstFile.name;
+    };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="space-y-6 max-w-3xl"
     >
+    <input
+      ref={imageFolderInputRef}
+      type="file"
+      className="hidden"
+      // @ts-ignore
+      webkitdirectory="true"
+      multiple
+      onChange={(e) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const firstFile = files[0] as File & {
+          webkitRelativePath?: string;
+        };
+
+        if (firstFile.webkitRelativePath) {
+          const folder = firstFile.webkitRelativePath.split("/")[0];
+          setImageDir(folder);
+        }
+      }}
+    />
+
+    <input
+      ref={maskFolderInputRef}
+      type="file"
+      className="hidden"
+      // @ts-ignore
+      webkitdirectory="true"
+      multiple
+      onChange={(e) => {
+        const selectedPath = getSelectedPath(e.target.files);
+        if (selectedPath) setMaskDir(selectedPath);
+      }}
+    />
+
+    <input
+      ref={cocoJsonInputRef}
+      type="file"
+      accept=".json,application/json"
+      className="hidden"
+      onChange={(e) => {
+        const file = e.target.files?.[0] as
+          | (File & { path?: string })
+          | undefined;
+
+        if (!file) return;
+
+        setCocoJsonPath(file.path || file.name);
+      }}
+    />
       <div>
         <h2 className="text-2xl font-heading font-bold">Configuration</h2>
         <p className="text-muted-foreground text-sm mt-1">
@@ -335,7 +408,7 @@ export default function SettingsPage() {
           disabled={isImporting}
         >
           <FolderOpen className="h-4 w-4" />
-          {isImporting ? "Importing..." : "Use Existing Directory"}
+          {isImporting ? "Importing Existing Results..." : "Import Existing Results"}
         </Button>
 
         {importResult && (
@@ -390,7 +463,12 @@ export default function SettingsPage() {
       </div>
 
       <div className="glass-card p-6 space-y-4">
-        <h3 className="font-heading font-semibold">Dataset Inputs</h3>
+        <div>
+          <h3 className="font-heading font-semibold">New Pipeline Dataset Inputs</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Use this section only when starting a new pipeline from raw images and annotations.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -402,7 +480,14 @@ export default function SettingsPage() {
                 placeholder="C:/path/to/images"
                 className="bg-secondary border-border"
               />
-              <Button variant="outline" size="icon" type="button">
+
+              <Button
+                variant="outline"
+                size="icon"
+                type="button"
+                onClick={() => imageFolderInputRef.current?.click()}
+                title="Select image folder"
+              >
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </div>
@@ -429,24 +514,46 @@ export default function SettingsPage() {
 
         {annotationType === "COCO JSON" ? (
           <div className="space-y-2">
-            <Label>COCO JSON Path</Label>
+          <Label>COCO JSON Path</Label>
+          <div className="flex gap-2">
             <Input
               value={cocoJsonPath}
               onChange={(e) => setCocoJsonPath(e.target.value)}
               placeholder="C:/path/to/annotations.json"
               className="bg-secondary border-border"
             />
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              onClick={() => cocoJsonInputRef.current?.click()}
+              title="Select COCO JSON file"
+            >
+              <FolderOpen className="h-4 w-4" />
+            </Button>
           </div>
+        </div>
         ) : (
           <div className="space-y-2">
-            <Label>Mask Folder</Label>
+          <Label>Mask Folder</Label>
+          <div className="flex gap-2">
             <Input
               value={maskDir}
               onChange={(e) => setMaskDir(e.target.value)}
               placeholder="C:/path/to/masks"
               className="bg-secondary border-border"
             />
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              onClick={() => maskFolderInputRef.current?.click()}
+              title="Select mask folder"
+            >
+              <FolderOpen className="h-4 w-4" />
+            </Button>
           </div>
+        </div>
         )}
       </div>
 
