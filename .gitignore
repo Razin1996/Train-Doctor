@@ -71,3 +71,4 @@ Thumbs.db
 # Optional local test/demo artifacts
 # ------------------------------
 *.sqlite3
+final.zip
